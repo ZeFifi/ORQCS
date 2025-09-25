@@ -1,40 +1,29 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import 'react-native-reanimated';
 
 import { Colors } from '@/constants/theme';
+import { ErrorBoundary } from '@/components/error-boundary';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { useAsyncStorageBoolean } from '@/hooks/use-async-storage';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-function NavigationLayout() {
+const NavigationLayout = React.memo(() => {
   const router = useRouter();
   const segments = useSegments();
   const { session, loading } = useAuth();
-  const [isFirstLaunch, setIsFirstLaunch] = useState<boolean | null>(null);
+  const [hasLaunched, , storageLoading] = useAsyncStorageBoolean('hasLaunched', false);
+
+  const isFirstLaunch = hasLaunched === false;
 
   useEffect(() => {
-    const checkFirstLaunch = async () => {
-      try {
-        const hasLaunched = await AsyncStorage.getItem('hasLaunched');
-        setIsFirstLaunch(hasLaunched === null);
-      } catch (error) {
-        console.error('Error checking first launch:', error);
-        setIsFirstLaunch(true);
-      }
-    };
-
-    checkFirstLaunch();
-  }, []);
-
-  useEffect(() => {
-    if (loading || isFirstLaunch === null) return;
+    if (loading || storageLoading) return;
 
     const inAuthGroup = segments[0] === '(tabs)';
 
@@ -45,7 +34,7 @@ function NavigationLayout() {
     } else if (session && !inAuthGroup && segments[0] !== 'modal') {
       router.replace('/(tabs)');
     }
-  }, [session, loading, isFirstLaunch, segments, router]);
+  }, [session, loading, isFirstLaunch, storageLoading, segments, router]);
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
@@ -57,26 +46,35 @@ function NavigationLayout() {
       <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
     </Stack>
   );
-}
+});
+
+NavigationLayout.displayName = 'NavigationLayout';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
 
   // Create a light theme overriding the default background to pure white
-  const LightTheme = {
+  const lightTheme = useMemo(() => ({
     ...DefaultTheme,
     colors: {
       ...DefaultTheme.colors,
       background: Colors.light.background,
     },
-  } as const;
+  }), []);
+
+  const theme = useMemo(() =>
+    colorScheme === 'dark' ? DarkTheme : lightTheme,
+    [colorScheme, lightTheme]
+  );
 
   return (
-    <AuthProvider>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : LightTheme}>
-        <NavigationLayout />
-        <StatusBar style="auto" />
-      </ThemeProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ThemeProvider value={theme}>
+          <NavigationLayout />
+          <StatusBar style="auto" />
+        </ThemeProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

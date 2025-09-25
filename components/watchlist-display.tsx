@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   View,
-  FlatList,
+  ScrollView,
   Image,
   TouchableOpacity,
   StyleSheet,
@@ -102,13 +102,17 @@ export function WatchlistDisplay() {
         </TouchableOpacity>
       </View>
 
-      <FlatList
-        data={watchlist}
-        keyExtractor={(item) => item.id}
-        renderItem={renderItem}
+      <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.listContent}
-      />
+        nestedScrollEnabled={true}
+      >
+        {watchlist.map((item) => (
+          <View key={item.id}>
+            {renderItem({ item })}
+          </View>
+        ))}
+      </ScrollView>
     </ThemedView>
   );
 }

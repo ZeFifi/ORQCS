@@ -1,5 +1,5 @@
 import { Image } from 'expo-image';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
@@ -9,18 +9,21 @@ import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/lib/supabase';
 
+interface Profile {
+  id: string;
+  first_name?: string;
+  last_name?: string;
+  email: string;
+}
+
 export default function HomeScreen() {
   const { user } = useAuth();
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchProfile();
-    }
-  }, [user]);
+  const fetchProfile = useCallback(async () => {
+    if (!user?.id) return;
 
-  const fetchProfile = async () => {
     setIsLoadingProfile(true);
     try {
       const { data, error } = await supabase
@@ -39,7 +42,36 @@ export default function HomeScreen() {
     } finally {
       setIsLoadingProfile(false);
     }
-  };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user, fetchProfile]);
+
+  const displayName = useMemo(() => {
+    if (profile?.first_name) {
+      return `, ${profile.first_name}`;
+    }
+    if (user?.email) {
+      return `, ${user.email}`;
+    }
+    return '';
+  }, [profile?.first_name, user?.email]);
+
+  const handleRandomPick = useCallback(() => {
+    Alert.alert('Random Selection', 'This feature will be implemented soon!');
+  }, []);
+
+  const headerImage = useMemo(() => (
+    <Image
+      source={require('@/assets/images/partial-react-logo.png')}
+      style={styles.reactLogo}
+      contentFit="contain"
+      transition={200}
+    />
+  ), []);
 
   if (isLoadingProfile) {
     return (
@@ -52,16 +84,9 @@ export default function HomeScreen() {
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
+      headerImage={headerImage}>
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">
-          Welcome{profile?.first_name ? `, ${profile.first_name}` : user?.email ? `, ${user.email}` : ''}!
-        </ThemedText>
+        <ThemedText type="title">Welcome{displayName}!</ThemedText>
         <HelloWave />
       </ThemedView>
 
@@ -75,7 +100,8 @@ export default function HomeScreen() {
 
         <TouchableOpacity
           style={styles.randomButton}
-          onPress={() => Alert.alert('Random Selection', 'This feature will be implemented soon!')}
+          onPress={handleRandomPick}
+          activeOpacity={0.8}
         >
           <ThemedText style={styles.randomButtonText}>🎲 Random Pick</ThemedText>
         </TouchableOpacity>

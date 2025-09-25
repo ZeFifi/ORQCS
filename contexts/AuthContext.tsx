@@ -1,16 +1,23 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+interface UserData {
+  firstName?: string;
+  lastName?: string;
+  dateOfBirth?: string;
+  country?: string;
+}
 
 interface AuthContextType {
   session: Session | null;
   user: User | null;
   loading: boolean;
-  signUp: (email: string, password: string, userData?: any) => Promise<{ error: any }>;
+  signUp: (email: string, password: string, userData?: UserData) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
-  updateProfile: (userData: any) => Promise<{ error: any }>;
+  updateProfile: (userData: Record<string, any>) => Promise<{ error: any }>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -36,39 +43,55 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const handleAuthStateChange = useCallback(async (event: string, session: Session | null) => {
+    setSession(session);
+    setUser(session?.user ?? null);
+
+    if (session?.access_token) {
+      await AsyncStorage.setItem('userToken', session.access_token);
+    } else {
+      await AsyncStorage.removeItem('userToken');
+    }
+  }, []);
+
   useEffect(() => {
+    let mounted = true;
+
     const getSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      setSession(session);
-      setUser(session?.user ?? null);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (session) {
-        await AsyncStorage.setItem('userToken', session.access_token);
-      } else {
-        await AsyncStorage.removeItem('userToken');
+        if (mounted) {
+          setSession(session);
+          setUser(session?.user ?? null);
+
+          if (session?.access_token) {
+            await AsyncStorage.setItem('userToken', session.access_token);
+          } else {
+            await AsyncStorage.removeItem('userToken');
+          }
+          setLoading(false);
+        }
+      } catch (error) {
+        console.error('Error getting session:', error);
+        if (mounted) {
+          setLoading(false);
+        }
       }
-
-      setLoading(false);
     };
 
     getSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(handleAuthStateChange);
 
-      if (session) {
-        await AsyncStorage.setItem('userToken', session.access_token);
-      } else {
-        await AsyncStorage.removeItem('userToken');
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [handleAuthStateChange]);
 
   // Helper function to convert DD/MM/YYYY to YYYY-MM-DD
-  const convertDateFormat = (dateString: string): string | null => {
+  const convertDateFormat = useCallback((dateString: string): string | null => {
     if (!dateString) return null;
 
     // Check if it's already in YYYY-MM-DD format
@@ -84,69 +107,86 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     return null;
-  };
+  }, []);
 
-  const signUp = async (email: string, password: string, userData?: any) => {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+  const signUp = useCallback(async (email: string, password: string, userData?: UserData) => {
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+      });
 
-    if (!error && data.user && userData) {
-      // Wait a moment for the trigger to create the profile record
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      if (!error && data.user && userData) {
+        // Wait a moment for the trigger to create the profile record
+        await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Convert date format
-      const formattedDate = convertDateFormat(userData.dateOfBirth);
+        // Convert date format
+        const formattedDate = convertDateFormat(userData.dateOfBirth || '');
 
-      // Update the profile with additional user data
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          first_name: userData.firstName,
-          last_name: userData.lastName,
-          date_of_birth: formattedDate,
-          country: userData.country,
-        })
-        .eq('id', data.user.id);
+        // Update the profile with additional user data
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update({
+            first_name: userData.firstName,
+            last_name: userData.lastName,
+            date_of_birth: formattedDate,
+            country: userData.country,
+          })
+          .eq('id', data.user.id);
 
-      if (profileError) {
-        console.error('Profile update error:', profileError);
-        // Log more details for debugging
-        console.error('User ID:', data.user.id);
-        console.error('User data:', userData);
-        console.error('Formatted date:', formattedDate);
+        if (profileError) {
+          console.error('Profile update error:', profileError);
+        }
       }
+
+      return { error };
+    } catch (err) {
+      console.error('SignUp error:', err);
+      return { error: err };
     }
+  }, [convertDateFormat]);
 
-    return { error };
-  };
+  const signIn = useCallback(async (email: string, password: string) => {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      return { error };
+    } catch (err) {
+      console.error('SignIn error:', err);
+      return { error: err };
+    }
+  }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
-  };
+  const signOut = useCallback(async () => {
+    try {
+      await Promise.all([
+        supabase.auth.signOut(),
+        AsyncStorage.removeItem('userToken')
+      ]);
+    } catch (err) {
+      console.error('SignOut error:', err);
+    }
+  }, []);
 
-  const signOut = async () => {
-    await supabase.auth.signOut();
-    await AsyncStorage.removeItem('userToken');
-  };
+  const updateProfile = useCallback(async (userData: Record<string, any>) => {
+    if (!user?.id) return { error: { message: 'No user logged in' } };
 
-  const updateProfile = async (userData: any) => {
-    if (!user) return { error: { message: 'No user logged in' } };
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update(userData)
+        .eq('id', user.id);
 
-    const { error } = await supabase
-      .from('profiles')
-      .update(userData)
-      .eq('id', user.id);
+      return { error };
+    } catch (err) {
+      console.error('UpdateProfile error:', err);
+      return { error: err };
+    }
+  }, [user?.id]);
 
-    return { error };
-  };
-
-  const value = {
+  const value = useMemo(() => ({
     session,
     user,
     loading,
@@ -154,7 +194,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signIn,
     signOut,
     updateProfile,
-  };
+  }), [session, user, loading, signUp, signIn, signOut, updateProfile]);
 
   return (
     <AuthContext.Provider value={value}>
