@@ -4,10 +4,13 @@ import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
+import { RandomWheel } from '@/components/random-wheel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/AuthContext';
+import { useWatchlist } from '@/hooks/use-watchlist';
 import { supabase } from '@/lib/supabase';
+import { WatchlistItem } from '@/lib/types';
 
 interface Profile {
   id: string;
@@ -18,8 +21,10 @@ interface Profile {
 
 export default function HomeScreen() {
   const { user } = useAuth();
+  const { watchlist } = useWatchlist();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [isSpinning, setIsSpinning] = useState(false);
 
   const fetchProfile = useCallback(async () => {
     if (!user?.id) return;
@@ -61,7 +66,26 @@ export default function HomeScreen() {
   }, [profile?.first_name, user?.email]);
 
   const handleRandomPick = useCallback(() => {
-    Alert.alert('Random Selection', 'This feature will be implemented soon!');
+    const availableItems = watchlist.filter(item => !item.watched);
+
+    if (availableItems.length === 0) {
+      Alert.alert('No Items', 'Add some movies or series to your watchlist first!');
+      return;
+    }
+
+    setIsSpinning(true);
+  }, [watchlist]);
+
+  const handleSpinComplete = useCallback((selectedItem: WatchlistItem | null) => {
+    setIsSpinning(false);
+
+    if (selectedItem) {
+      Alert.alert(
+        'Random Pick! 🎬',
+        `Tonight you should watch: "${selectedItem.title}" (${selectedItem.year})`,
+        [{ text: 'Great choice!', style: 'default' }]
+      );
+    }
   }, []);
 
   const headerImage = useMemo(() => (
@@ -99,13 +123,22 @@ export default function HomeScreen() {
         </ThemedText>
 
         <TouchableOpacity
-          style={styles.randomButton}
+          style={[styles.randomButton, isSpinning && styles.randomButtonDisabled]}
           onPress={handleRandomPick}
           activeOpacity={0.8}
+          disabled={isSpinning}
         >
-          <ThemedText style={styles.randomButtonText}>🎲 Random Pick</ThemedText>
+          <ThemedText style={styles.randomButtonText}>
+            {isSpinning ? '🎲 Spinning...' : '🎲 Random Pick'}
+          </ThemedText>
         </TouchableOpacity>
       </ThemedView>
+
+      <RandomWheel
+        items={watchlist}
+        isSpinning={isSpinning}
+        onSpinComplete={handleSpinComplete}
+      />
     </ParallaxScrollView>
   );
 }
@@ -161,5 +194,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
+  },
+  randomButtonDisabled: {
+    opacity: 0.6,
+    backgroundColor: '#999',
   },
 });
