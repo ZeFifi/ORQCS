@@ -13,7 +13,7 @@ import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { omdbService } from '@/lib/omdb';
-import { useWatchlist } from '@/hooks/use-watchlist';
+import { useWatchlist } from '@/contexts/WatchlistContext';
 import { OMDBSearchResult } from '@/lib/types';
 
 export function MovieSearch() {

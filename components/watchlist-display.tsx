@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { ThemedText } from './themed-text';
 import { ThemedView } from './themed-view';
-import { useWatchlist } from '@/hooks/use-watchlist';
+import { useWatchlist } from '@/contexts/WatchlistContext';
 import { WatchlistItem } from '@/lib/types';
 
 export function WatchlistDisplay() {

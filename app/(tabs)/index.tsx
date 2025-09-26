@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, StyleSheet, TouchableOpacity, View } from 'react-native';
 
@@ -8,7 +9,7 @@ import { RandomWheel } from '@/components/random-wheel';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useAuth } from '@/contexts/AuthContext';
-import { useWatchlist } from '@/hooks/use-watchlist';
+import { useWatchlist } from '@/contexts/WatchlistContext';
 import { supabase } from '@/lib/supabase';
 import { WatchlistItem } from '@/lib/types';
 
@@ -21,7 +22,7 @@ interface Profile {
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const { watchlist } = useWatchlist();
+  const { watchlist, refreshWatchlist } = useWatchlist();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [isSpinning, setIsSpinning] = useState(false);
@@ -54,6 +55,13 @@ export default function HomeScreen() {
       fetchProfile();
     }
   }, [user, fetchProfile]);
+
+  // Refresh watchlist when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      refreshWatchlist();
+    }, [refreshWatchlist])
+  );
 
   const displayName = useMemo(() => {
     if (profile?.first_name) {

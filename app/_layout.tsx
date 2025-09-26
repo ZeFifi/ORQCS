@@ -7,6 +7,7 @@ import 'react-native-reanimated';
 import { Colors } from '@/constants/theme';
 import { ErrorBoundary } from '@/components/error-boundary';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+import { WatchlistProvider } from '@/contexts/WatchlistContext';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAsyncStorageBoolean } from '@/hooks/use-async-storage';
 
@@ -70,10 +71,12 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <ThemeProvider value={theme}>
-          <NavigationLayout />
-          <StatusBar style="auto" />
-        </ThemeProvider>
+        <WatchlistProvider>
+          <ThemeProvider value={theme}>
+            <NavigationLayout />
+            <StatusBar style="auto" />
+          </ThemeProvider>
+        </WatchlistProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

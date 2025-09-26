@@ -1,10 +1,28 @@
-import { useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useCallback, useEffect, useState, ReactNode } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { WatchlistItem, OMDBSearchResult } from '../lib/types';
 
 const WATCHLIST_STORAGE_KEY = '@orqcs_watchlist';
 
-export function useWatchlist() {
+interface WatchlistContextType {
+  watchlist: WatchlistItem[];
+  loading: boolean;
+  error: string | null;
+  addToWatchlist: (item: OMDBSearchResult) => Promise<boolean>;
+  removeFromWatchlist: (imdbID: string) => Promise<boolean>;
+  markAsWatched: (imdbID: string, watched?: boolean) => Promise<boolean>;
+  isInWatchlist: (imdbID: string) => boolean;
+  getRandomItem: (filterWatched?: boolean) => WatchlistItem | null;
+  refreshWatchlist: () => Promise<void>;
+}
+
+const WatchlistContext = createContext<WatchlistContextType | undefined>(undefined);
+
+interface WatchlistProviderProps {
+  children: ReactNode;
+}
+
+export function WatchlistProvider({ children }: WatchlistProviderProps) {
   const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,11 +141,15 @@ export function useWatchlist() {
     [watchlist]
   );
 
+  const refreshWatchlist = useCallback(async () => {
+    await loadWatchlist();
+  }, [loadWatchlist]);
+
   useEffect(() => {
     loadWatchlist();
   }, [loadWatchlist]);
 
-  return {
+  const value: WatchlistContextType = {
     watchlist,
     loading,
     error,
@@ -136,6 +158,20 @@ export function useWatchlist() {
     markAsWatched,
     isInWatchlist,
     getRandomItem,
-    refreshWatchlist: loadWatchlist,
+    refreshWatchlist,
   };
+
+  return (
+    <WatchlistContext.Provider value={value}>
+      {children}
+    </WatchlistContext.Provider>
+  );
+}
+
+export function useWatchlist() {
+  const context = useContext(WatchlistContext);
+  if (context === undefined) {
+    throw new Error('useWatchlist must be used within a WatchlistProvider');
+  }
+  return context;
 }
