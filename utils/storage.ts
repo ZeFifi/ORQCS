@@ -42,3 +42,11 @@ export const getUserToken = async (): Promise<string | null> => {
     return null;
   }
 };
+
+export const resetOnboarding = async () => {
+  try {
+    await AsyncStorage.removeItem('hasLaunched');
+  } catch (error) {
+    console.error('Error resetting onboarding:', error);
+  }
+};

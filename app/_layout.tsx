@@ -27,12 +27,21 @@ const NavigationLayout = React.memo(() => {
     if (loading || storageLoading) return;
 
     const inAuthGroup = segments[0] === '(tabs)';
+    const currentRoute = segments[0];
 
     if (isFirstLaunch) {
-      router.replace('/onboarding');
+      // First launch - show onboarding unless already there or completing onboarding
+      if (currentRoute !== 'onboarding' && currentRoute !== 'auth-choice') {
+        router.replace('/onboarding');
+      }
     } else if (!session && inAuthGroup) {
+      // User is not authenticated but trying to access authenticated routes
+      router.replace('/auth-choice');
+    } else if (!session && !inAuthGroup && currentRoute !== 'auth-choice' && currentRoute !== 'login' && currentRoute !== 'signup') {
+      // User is not authenticated and not on auth-related screens
       router.replace('/auth-choice');
     } else if (session && !inAuthGroup && segments[0] !== 'modal') {
+      // User is authenticated but not on authenticated routes
       router.replace('/(tabs)');
     }
   }, [session, loading, isFirstLaunch, storageLoading, segments, router]);

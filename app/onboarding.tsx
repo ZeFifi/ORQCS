@@ -11,7 +11,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Colors } from '@/constants/theme';
-import { setHasLaunched } from '@/utils/storage';
+import { useAsyncStorageBoolean } from '@/hooks/use-async-storage';
 
 const { width } = Dimensions.get('window');
 
@@ -55,6 +55,7 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const colors = Colors[colorScheme ?? 'light'];
+  const [, setHasLaunched] = useAsyncStorageBoolean('hasLaunched', false);
 
   const handleScroll = (event: any) => {
     const scrollPosition = event.nativeEvent.contentOffset.x;
@@ -71,14 +72,26 @@ export default function OnboardingScreen() {
     if (currentIndex < onboardingData.length - 1) {
       scrollToSlide(currentIndex + 1);
     } else {
-      await setHasLaunched();
-      router.replace('/auth-choice');
+      await completeOnboarding();
     }
   };
 
   const handleSkip = async () => {
-    await setHasLaunched();
-    router.replace('/auth-choice');
+    await completeOnboarding();
+  };
+
+  const completeOnboarding = async () => {
+    try {
+      await setHasLaunched(true);
+      // Small delay to ensure AsyncStorage is updated and state is synchronized
+      setTimeout(() => {
+        router.replace('/auth-choice');
+      }, 100);
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      // Fallback navigation even if AsyncStorage fails
+      router.replace('/auth-choice');
+    }
   };
 
   const styles = StyleSheet.create({

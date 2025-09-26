@@ -1,14 +1,15 @@
+import { Colors } from '@/constants/theme';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { resetOnboarding } from '@/utils/storage';
+import { useRouter } from 'expo-router';
 import React from 'react';
 import {
-  View,
-  Text,
   StyleSheet,
+  Text,
   TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-import { Colors } from '@/constants/theme';
 
 export default function AuthChoiceScreen() {
   const router = useRouter();
@@ -85,16 +86,22 @@ export default function AuthChoiceScreen() {
       <View style={styles.buttonContainer}>
         <TouchableOpacity
           style={styles.primaryButton}
-          onPress={() => router.push('/signup')}
+          onPress={() => router.replace('/signup')}
         >
           <Text style={styles.primaryButtonText}>Sign Up</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.secondaryButton}
-          onPress={() => router.push('/login')}
+          onPress={() => router.replace('/login')}
         >
           <Text style={styles.secondaryButtonText}>Log In</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.secondaryButton}
+          onPress={resetOnboarding}
+        >
+          <Text style={styles.secondaryButtonText}>Reset</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
