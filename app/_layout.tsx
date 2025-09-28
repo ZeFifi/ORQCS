@@ -4,12 +4,13 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useMemo } from 'react';
 import 'react-native-reanimated';
 
-import { Colors } from '@/constants/theme';
 import { ErrorBoundary } from '@/components/error-boundary';
+import { Colors } from '@/constants/theme';
+import { AnimationProvider } from '@/contexts/AnimationContext';
 import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 import { WatchlistProvider } from '@/contexts/WatchlistContext';
-import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAsyncStorageBoolean } from '@/hooks/use-async-storage';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -46,6 +47,11 @@ const NavigationLayout = React.memo(() => {
     }
   }, [session, loading, isFirstLaunch, storageLoading, segments, router]);
 
+  // Avoid flashing an unintended screen before routing decision is made
+  if (loading || storageLoading) {
+    return null;
+  }
+
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="onboarding" />
@@ -81,10 +87,12 @@ export default function RootLayout() {
     <ErrorBoundary>
       <AuthProvider>
         <WatchlistProvider>
-          <ThemeProvider value={theme}>
-            <NavigationLayout />
-            <StatusBar style="auto" />
-          </ThemeProvider>
+          <AnimationProvider>
+            <ThemeProvider value={theme}>
+              <NavigationLayout />
+              <StatusBar style="light" translucent={false} />
+            </ThemeProvider>
+          </AnimationProvider>
         </WatchlistProvider>
       </AuthProvider>
     </ErrorBoundary>
